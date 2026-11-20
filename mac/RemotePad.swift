@@ -3,6 +3,7 @@ import GameController
 import WebKit
 
 private let playURL = URL(string: "https://www.xbox.com/remoteplay")!
+private let ps5URL = URL(string: "http://127.0.0.1:17365/")!
 private let xboxHosts: Set<String> = ["www.xbox.com", "xbox.com", "play.xbox.com"]
 
 // One instance per pointer lock. Late callbacks from a previous capture can
@@ -29,7 +30,8 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
     private let checkingInput = CommandLine.arguments.contains("--check-input")
     private let checkingPlayer = CommandLine.arguments.contains("--check-player")
     private let checkingLayout = CommandLine.arguments.contains("--check-layout")
-    private var isChecking: Bool { checkingInput || checkingPlayer || checkingLayout }
+    private let checkingPS5 = CommandLine.arguments.contains("--check-ps5")
+    private var isChecking: Bool { checkingInput || checkingPlayer || checkingLayout || checkingPS5 }
     private let checkPreferencesSuite = "local.remotepad.check." + UUID().uuidString
     private lazy var settings: UserDefaults = isChecking ? UserDefaults(suiteName: checkPreferencesSuite)! : .standard
     private var mainView: WKWebView!
@@ -100,6 +102,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
             const mapperURL = new URL(\(mapperLiteral));
             const isMapper = location.protocol === "file:" && location.host === mapperURL.host &&
                              location.pathname === mapperURL.pathname;
+            const isPS5 = location.origin === "http://127.0.0.1:17365";
             const isXbox = location.protocol === "https:" && !location.port &&
                           \(hosts).includes(location.hostname);
             """
@@ -111,7 +114,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
             case "controller-model.js", "mapper-ui.js": local = "false"
             default: local = "isBench"
             }
-            let script = "(() => {\n\(guardSource)\nif (!(isXbox || \(local))) return;\n\(contents)\n})();"
+            let script = "(() => {\n\(guardSource)\nif (!(isXbox || isPS5 || \(local))) return;\n\(contents)\n})();"
             configuration.userContentController.addUserScript(WKUserScript(
                 source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .page
             ))
@@ -184,6 +187,8 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         }
         let navigate = submenu("Go")
         for (title, selector, key) in [("Home", #selector(showHome), "1"),
+                                       ("Xbox Remote Play", #selector(showXbox), ""),
+                                       ("PS5 Remote Play", #selector(showPS5), ""),
                                        ("Back", #selector(back), "["),
                                        ("Reload", #selector(reload), "r")] {
             navigate.addItem(withTitle: title, action: selector, keyEquivalent: key).target = self
@@ -194,7 +199,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         NSApp.windowsMenu = window
         let help = submenu("Help")
         for (title, file) in [("End-User License Agreement", "EULA.md"), ("License", "LICENSE"),
-                              ("Privacy Notice", "PRIVACY.md"), ("Support Guide", "SUPPORT.md")] {
+                              ("Privacy Notice", "PRIVACY.md"), ("Support Guide", "SUPPORT.md"), ("PS5 setup", "PS5.md")] {
             let item = help.addItem(withTitle: title, action: #selector(showDocument(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = file
@@ -205,13 +210,17 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
     private var documentWindow: NSWindow?
 
     @objc private func showDocument(_ item: NSMenuItem) {
-        guard let name = item.representedObject as? String,
-              let url = Bundle.main.resourceURL?.appendingPathComponent("Documentation").appendingPathComponent(name),
+        guard let name = item.representedObject as? String else { return }
+        showDocument(named: name, title: item.title)
+    }
+
+    private func showDocument(named name: String, title: String) {
+        guard let url = Bundle.main.resourceURL?.appendingPathComponent("Documentation").appendingPathComponent(name),
               let text = try? String(contentsOf: url, encoding: .utf8) else { return }
         let window = documentWindow ?? NSWindow(contentRect: NSRect(x: 0, y: 0, width: 650, height: 540),
                                                 styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         if documentWindow == nil { window.center() }
-        window.title = item.title
+        window.title = title
         window.isReleasedWhenClosed = false
         let scroll = NSTextView.scrollableTextView()
         guard let view = scroll.documentView as? NSTextView else { return }
@@ -228,6 +237,19 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         mainWindow.makeKeyAndOrderFront(nil)
         mainView.loadFileURL(home, allowingReadAccessTo: assets)
     }
+    @objc private func showXbox() { mainView.load(URLRequest(url: playURL)) }
+    @objc private func showPS5() { mainView.load(URLRequest(url: ps5URL)) }
+
+    private func startPS5() {
+        guard let script = Bundle.main.resourceURL?.appendingPathComponent("PS5/Start PS5 Player.command"),
+              let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") else {
+            showMessage("Could not open the PS5 launcher", "Open Help → PS5 setup for the startup instructions.")
+            return
+        }
+        NSWorkspace.shared.open([script], withApplicationAt: terminal, configuration: .init()) { _, error in
+            if let error { DispatchQueue.main.async { self.showMessage("PS5 setup", error.localizedDescription) } }
+        }
+    }
     private var keyView: WKWebView { (NSApp.keyWindow?.contentView as? WKWebView) ?? mainView }
     @objc private func back() { keyView.goBack() }
     @objc private func reload() { keyView.reload() }
@@ -237,7 +259,14 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         return url.standardizedFileURL.path == expected.standardizedFileURL.path
     }
 
+    private func isPS5(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.scheme == "http" && url.host == ps5URL.host && url.port == ps5URL.port
+            && url.user == nil && url.password == nil
+    }
+
     private func isPlayer(_ url: URL?) -> Bool {
+        if isPS5(url) { return true }
         if isLocal(url, bench) { return true }
         guard let url, url.scheme == "https", let host = url.host?.lowercased(),
               xboxHosts.contains(host), (url.port ?? 443) == 443 else { return false }
@@ -267,7 +296,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
                 return
             }
             let ids: Set<String> = ["a", "b", "x", "y", "lb", "rb", "lt", "rt", "view", "menu", "ls", "rs",
-                                    "up", "down", "left", "right", "guide", "lxLeft", "lxRight", "lyUp", "lyDown",
+                                    "up", "down", "left", "right", "guide", "touchpad", "lxLeft", "lxRight", "lyUp", "lyDown",
                                     "rxLeft", "rxRight", "ryUp", "ryDown"]
             guard let layout = message.body as? [String: [String]], layout.count <= ids.count,
                   layout.allSatisfy({ ids.contains($0.key) && $0.value.count <= 32 &&
@@ -303,8 +332,10 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
               let action = message.body as? String else { return }
         do {
             switch action {
-            case "play":
-                mainView.load(URLRequest(url: playURL))
+            case "play": showXbox()
+            case "ps5": showPS5()
+            case "ps5Setup": showDocument(named: "PS5.md", title: "PS5 setup")
+            case "startPS5": startPS5()
             case "bench":
                 mainView.loadFileURL(bench, allowingReadAccessTo: assets)
             case "map":
@@ -552,12 +583,15 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         let safeLocalNavigation = isBundledPage && view === mainView &&
             (view.url == nil || action.targetFrame?.isMainFrame == true)
         let embeddedDocument = action.targetFrame?.isMainFrame == false && ["blob", "data"].contains(url.scheme ?? "")
-        decisionHandler(url.scheme == "https" || url.scheme == "about" || embeddedDocument || safeLocalNavigation ? .allow : .cancel)
+        let localPlayer = isPS5(url) && view === mainView && action.targetFrame?.isMainFrame == true
+        decisionHandler(localPlayer || url.scheme == "https" || url.scheme == "about" || embeddedDocument || safeLocalNavigation ? .allow : .cancel)
     }
 
     private func updateTitle(_ view: WKWebView) {
         if let url = view.url, url.scheme == "https", let host = url.host {
             view.window?.title = "Remote Pad  ·  " + host
+        } else if isPS5(view.url) {
+            view.window?.title = "Remote Pad  ·  PlayStation 5"
         } else if isLocal(view.url, bench) {
             view.window?.title = "Remote Pad  ·  Input Test"
         } else if isLocal(view.url, mapper) {
@@ -574,6 +608,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         guard view === mainView else { return }
         if checkingInput { checkPackagedInput() }
         if checkingPlayer { checkPlayerLanding() }
+        if checkingPS5 { checkPS5Player() }
         if checkingLayout { checkPackagedLayout() }
     }
 
@@ -588,6 +623,10 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         if cause.domain == NSURLErrorDomain && cause.code == NSURLErrorCancelled { return }
         if cause.domain == WKError.errorDomain && cause.code == 102 { return } // Navigation replaced.
         if isChecking { finishCheck(false, cause.localizedDescription) }
+        if let url = cause.userInfo[NSURLErrorFailingURLErrorKey] as? URL, isPS5(url) {
+            showMessage("Could not reach the PS5 player", "On Home, choose Start PS5 player and wait for its password to appear. Then open PS5 again. See Help → PS5 setup for pairing.", in: view.window)
+            return
+        }
         showMessage("Could not load the page", cause.localizedDescription +
                     "\nReturn Home to reopen Remote Play or use the Chrome option.", in: view.window)
     }
@@ -847,6 +886,63 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
         return mode + " and matching AppKit input delivered once"
     }
 
+    // Exercise the installed companion's real polling and serialization code with
+    // an in-memory receiver. This check never pairs or opens a console session.
+    private func checkPS5Player() {
+        if isLocal(mainView.url, home) {
+            mainView.evaluateJavaScript("document.querySelector('button[data-action=ps5]').click()")
+            return
+        }
+        guard isPS5(mainView.url) else { return }
+        Task { @MainActor in
+            do {
+                _ = try await mainView.callAsyncJavaScript("""
+                    const info = await (await fetch('/api/public')).json();
+                    if (info.version !== '1.2.2' || !document.querySelector('#login-form'))
+                        throw Error('Expected the Remote Pad PS5 companion');
+                    document.body.classList.add('mode-control');
+                    const { InputManager } = await import('/js/input.js');
+                    window.ps5Samples = [];
+                    window.ps5Input = new InputManager({send: p => window.ps5Samples.push(p.slice())});
+                    window.ps5Input.start();
+                    for (let i = 0; i < 80; i++) {
+                        if (document.querySelector('#remote-pad-controls')?.shadowRoot?.querySelector('.capture')) return;
+                        await new Promise(resolve => setTimeout(resolve, 25));
+                    }
+                    throw Error('Missing PS5 capture controls');
+                    """, in: nil, contentWorld: .page)
+                try await captureForCheck()
+                _ = try await mainView.callAsyncJavaScript("""
+                    const send = (name, button) => document.body.dispatchEvent(new MouseEvent(name,
+                        {button, bubbles:true, cancelable:true}));
+                    send('mousedown', 0); send('mousedown', 2);
+                    document.body.dispatchEvent(new KeyboardEvent('keydown', {code:'Space', bubbles:true}));
+                    """, in: nil, contentWorld: .page)
+                sendTestMouse(.mouseMoved, dx: 50, dy: -40)
+                _ = try await mainView.callAsyncJavaScript("""
+                    for (let i = 0; i < 100; i++) {
+                        const active = window.ps5Samples.some(p => {
+                            const v = new DataView(p.buffer);
+                            return p.length === 28 && p[1] === 255 && p[2] === 255 &&
+                                (v.getUint32(4,true) & 1) && v.getInt16(12,true) > 0 && v.getInt16(14,true) < 0;
+                        });
+                        if (active) break;
+                        if (i === 99) throw Error('Missing PS5 Cross, triggers and right stick packet');
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                    window.RemotePadController.stop();
+                    for (let i = 0; i < 50; i++) {
+                        const p = window.ps5Samples.at(-1);
+                        if (p && p.slice(1,16).every(v => v === 0)) { window.ps5Input.stop(); return; }
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
+                    throw Error('Missing neutral release packet');
+                    """, in: nil, contentWorld: .page)
+                finishCheck(true, "PS5 companion 1.2.2 frontend, pointer lock and native motion, Cross, L2/R2 and neutral controller packets")
+            } catch { finishCheck(false, String(describing: error as NSError)) }
+        }
+    }
+
     private func checkPlayerLanding() {
         if isLocal(mainView.url, home) {
             mainView.evaluateJavaScript("window.webkit.messageHandlers.remotePad.postMessage('play')")
@@ -962,7 +1058,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
 
     private func finishCheck(_ ok: Bool, _ message: String) -> Never {
         settings.removePersistentDomain(forName: checkPreferencesSuite)
-        let check = checkingPlayer ? "player" : (checkingLayout ? "layout" : "input")
+        let check = checkingPS5 ? "PS5" : (checkingPlayer ? "player" : (checkingLayout ? "layout" : "input"))
         print("WKWebView \(check) check \(ok ? "passed" : "failed"): \(message)")
         exit(ok ? 0 : 1)
     }

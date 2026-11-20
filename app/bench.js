@@ -4,11 +4,17 @@
   const api = window.RemotePadController;
   if (!api || !window.RemotePadUI) {
     $("connection").textContent = "Unavailable";
-    $("notice").textContent = "Open the input test from Remote Pad.app.";
+    $("notice").textContent = "Open the input test from the Remote Pad app.";
     $("capture").disabled = true;
     return;
   }
-  const names = ["A","B","X","Y","LB","RB","LT","RT","View","Menu","LS","RS","↑","↓","←","→","Guide"];
+  const names = api.ps5 ? ["×","○","□","△","L1","R1","L2","R2","Create","Options","L3","R3","↑","↓","←","→","PS","Touchpad"] :
+    ["A","B","X","Y","LB","RB","LT","RT","View","Menu","LS","RS","↑","↓","←","→","Guide"];
+  if (api.ps5) {
+    $("lt-label").textContent = "L2";
+    $("rt-label").textContent = "R2";
+    $("edit-layout").href = "mapper.html?console=ps5";
+  }
   const indicators = names.map(name => {
     const label = document.createElement("span");
     label.textContent = name;
@@ -27,6 +33,8 @@
     const state = api.getState();
     sensitivity.value = state.sensitivity;
     $("gain").textContent = state.sensitivity.toFixed(2) + "×";
+    minimum.value = state.lookDeadzone;
+    $("minimum-value").textContent = Math.round(state.lookDeadzone * 100) + "%";
     $("capture").textContent = state.capturing ? "Release inputs (Esc)" : "Capture inputs";
     $("connection").textContent = state.capturing ? "Capturing" : state.connected ? "Connected" : "Disconnected";
     $("connection").classList.toggle("live", state.connected);

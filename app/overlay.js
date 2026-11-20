@@ -84,7 +84,7 @@
     controls()[option.method](parsed);
     const saved = controls().getState()[id];
     try { localStorage.setItem(option.key, String(saved)); } catch {}
-    const bridge = window.webkit?.messageHandlers?.[option.bridge];
+    const bridge = window.RemotePadWindows?.[id] || window.webkit?.messageHandlers?.[option.bridge];
     if (bridge) bridge.postMessage(saved).catch(() => {});
   }
 
@@ -96,7 +96,7 @@
         const stored = localStorage.getItem(option.key);
         if (stored !== null && valid(Number(stored))) controls()[option.method](Number(stored));
       } catch {}
-      const bridge = window.webkit?.messageHandlers?.[option.bridge];
+      const bridge = window.RemotePadWindows?.[id] || window.webkit?.messageHandlers?.[option.bridge];
       if (bridge) bridge.postMessage("get").then(value => {
         if (active && revisions[id] === revision && valid(value)) controls()[option.method](value);
       }).catch(() => {});
@@ -160,7 +160,8 @@
     if (controls().getState().capturing) { controls().stop(); return; }
     const target = document.fullscreenElement || document.body || document.documentElement;
     if (typeof target?.requestPointerLock !== "function") {
-      report("This window cannot capture the mouse. Use the Chrome option on the app’s home screen.");
+      report(window.RemotePadWindows ? "This window cannot capture the mouse. Update the Microsoft Edge WebView2 Runtime and reopen Remote Pad." :
+        "This window cannot capture the mouse. Use the Chrome option on the app’s home screen.");
       return;
     }
     if (shadow?.activeElement instanceof HTMLElement) shadow.activeElement.blur();
@@ -272,7 +273,7 @@
     monitor.hidden = true;
     const scope = element("span", null, "scope");
     stickDot = element("i"); scope.append(stickDot);
-    triggerLights = [element("b", "LT"), element("b", "RT")];
+    triggerLights = (controls().ps5 ? ["L2", "R2"] : ["LT", "RT"]).map(label => element("b", label));
     monitor.append(element("span", "Right stick"), scope, ...triggerLights);
     dock.append(status, settings, row, monitor, playing); shadow.append(dock);
     mount(); render();
@@ -280,7 +281,7 @@
 
   function shortcut(event) {
     if (!active || dialog || event.code !== "F8" || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (Object.values(controls().getBindings()).some(codes => codes.includes("F8"))) return;
+    if (controls().isMapped("F8")) return;
     if (event.composedPath().some(n => n instanceof HTMLElement && (n.isContentEditable || n.matches("input,textarea,select")))) return;
     event.preventDefault(); event.stopImmediatePropagation();
     capture();

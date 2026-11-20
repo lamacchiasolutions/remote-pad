@@ -1,0 +1,57 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main, windows-port]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Test the controller and Windows web integration
+        run: node --test
+
+      - name: Prepare the Windows WebView2 Runtime
+        shell: pwsh
+        run: |
+          $client = 'Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}'
+          $keys = "HKLM:\SOFTWARE\WOW6432Node\$client", "HKCU:\SOFTWARE\$client"
+          foreach ($key in $keys) {
+              $version = Get-ItemPropertyValue -Path $key -Name pv -ErrorAction SilentlyContinue
+              if ($version -and [version]$version -gt [version]'0.0.0.0') {
+                  Write-Host "Found WebView2 Runtime $version"
+                  exit 0
+              }
+          }
+          $installer = Join-Path $env:RUNNER_TEMP 'MicrosoftEdgeWebView2Setup.exe'
+          Invoke-WebRequest 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile $installer
+          $signature = Get-AuthenticodeSignature $installer
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'CN=Microsoft Corporation,') {
+              throw 'The installer does not have a valid Microsoft signature.'
+          }
+          $setup = Start-Process $installer -ArgumentList '/silent /install' -Wait -PassThru
+          if ($setup.ExitCode -ne 0) { throw "WebView2 setup exited with $($setup.ExitCode)." }
+
+      - name: Build the ZIP and test its extracted app
+        shell: pwsh
+        run: ./tools/build-windows.ps1 -CheckInput
+
+      - name: Upload the Windows download
+        uses: actions/upload-artifact@v6
+        with:
+          name: Remote-Pad-Windows-x64
+          path: |
+            dist/Remote-Pad-Windows-x64.zip
+            dist/Remote-Pad-Windows-x64.zip.sha256
+          if-no-files-found: error
+          compression-level: 0

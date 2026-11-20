@@ -40,7 +40,7 @@
     });
   }
 
-  function nativeBridge() { return window.webkit?.messageHandlers?.remotePadBindings; }
+  function nativeBridge() { return window.RemotePadWindows?.bindings || window.webkit?.messageHandlers?.remotePadBindings; }
   function readChromeHandoff() {
     const prefix = "#remote-pad-layout=";
     if (!location.hash.startsWith(prefix)) return;

@@ -32,6 +32,11 @@ for document in LICENSE EULA.md PRIVACY.md SUPPORT.md; do
     /usr/bin/install -m 644 "$project_dir/$document" "$resources/Documentation/$document"
 done
 
+mkdir -p "$resources/PS5"
+install -m 644 "$project_dir/ps5/compose.yaml" "$resources/PS5/compose.yaml"
+install -m 755 "$project_dir/ps5/Start PS5 Player.command" "$resources/PS5/Start PS5 Player.command"
+install -m 644 "$project_dir/docs/PS5.md" "$resources/Documentation/PS5.md"
+
 cat > "$contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -46,8 +51,8 @@ cat > "$contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key><string>Remote Pad</string>
     <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Lamacchia Solutions. All rights reserved.</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.1.1</string>
-    <key>CFBundleVersion</key><string>4</string>
+    <key>CFBundleShortVersionString</key><string>1.2.0</string>
+    <key>CFBundleVersion</key><string>5</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.games</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSHighResolutionCapable</key><true/>

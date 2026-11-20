@@ -4,6 +4,8 @@
 
   const TAU = Math.PI * 2;
   const lime = "#c2ef8e";
+  const ps5 = Boolean(window.RemotePadController?.ps5);
+  const ps5Labels = { a:"×", b:"○", x:"□", y:"△", lb:"L1", rb:"R1", lt:"L2", rt:"R2", ls:"L3", rs:"R3" };
   const controls = {
     lt: ["Left trigger", -1.40, -1.44, -.17, .39, .15],
     rt: ["Right trigger", 1.40, -1.44, -.17, .39, .15],
@@ -23,6 +25,21 @@
     left: ["D-pad left", -.924, .33, .43, .135, .15],
     right: ["D-pad right", -.396, .33, .43, .135, .15]
   };
+  const dpad = ps5 ? [-1.42,-.36] : [-.66,.33];
+  if (ps5) {
+    controls.ls = ["Left stick", -.66, .33, .54, .41, .42];
+    controls.view = ["Create", -.96, -.78, .42, .15, .14];
+    controls.menu = ["Options", .96, -.78, .42, .15, .14];
+    controls.guide = ["PS button", 0, .07, .42, .16, .16];
+    controls.touchpad = ["Touchpad click", 0, -.66, .40, .72, .29];
+    for (const [id, name] of Object.entries({ a:"Cross", b:"Circle", x:"Square", y:"Triangle", lt:"L2", rt:"R2", lb:"L1", rb:"R1" })) {
+      controls[id][0] = name;
+    }
+    for (const [id,x,y] of [["left",-1,0],["right",1,0],["up",0,-1],["down",0,1]]) {
+      controls[id][1] = dpad[0] + .264*x;
+      controls[id][2] = dpad[1] + .264*y;
+    }
+  }
   const front = { yaw: -.065, pitch: .28 };
   const shoulders = { yaw: 0, pitch: 1.04 };
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -137,7 +154,9 @@
     faceParts.push(loft(x,y,outline,[[.273,1.13],[.29,1.10]],insert));
     faceParts.push(loft(x,y,outline,[[.282,1.02],[.345,.97],[.392,.86]],guide ? [148,166,153] : [58,71,63],id));
   }
-  const dpad = [-.66,.33];
+  if (ps5) {
+    faceParts.push(loft(0,-.66,roundedRect(1.48,.60,.13),[[.28,1],[.34,.99],[.385,.95]],[85,97,93],"touchpad"));
+  }
   faceParts.push(disc(...dpad,.459,[[.272,1],[.296,.97],[.315,.92]],insert));
   faceParts.push(loft(...dpad,circle(.393,.393,8),[[.302,1],[.370,1],[.405,.90]],[65,77,71]));
 
@@ -234,7 +253,7 @@
         line(seam.map(([x,y])=>[(x+.018)*sign,y,.274]),"#748373",.006);
       }
       // Soft contact shadows place the controls on the front plate.
-      for(const [x,y,r] of [[-1.42,-.38,.51],[.66,.33,.51],[-.66,.33,.46]]) {
+      for(const [x,y,r] of [[controls.ls[1],controls.ls[2],.51],[controls.rs[1],controls.rs[2],.51],[...dpad,.46]]) {
         const p=project(x+.025,y+.07,.277);
         ctx.save(); ctx.translate(p[0],p[1]); ctx.scale(scale*r,scale*r*Math.max(.45,cp));
         const shade=ctx.createRadialGradient(0,0,.52,0,0,1);
@@ -250,11 +269,11 @@
           const a=TAU*j/24, u=Math.cos(a), v=Math.sin(a);
           line([[x+.319*u,y+.319*v,.539],[x+.346*u,y+.346*v,.519]],"#94a094",.008);
         }
-        textAt(id.toUpperCase(),x,y,.558,.12,active(id)?"#e8ffda":"#a8b5a8");
+        textAt(ps5 ? ps5Labels[id] : id.toUpperCase(),x,y,.558,.12,active(id)?"#e8ffda":"#a8b5a8");
       }
       const colors={a:"#92dc83",b:"#f39085",x:"#83baf1",y:"#efd574"};
       for(const id of ["a","b","x","y"]) {
-        const [,x,y]=controls[id]; textAt(id.toUpperCase(),x,y+.003,.443,.185,active(id)?"#233024":colors[id],730);
+        const [,x,y]=controls[id]; textAt(ps5 ? ps5Labels[id] : id.toUpperCase(),x,y+.003,.443,.185,active(id)?"#233024":colors[id],730);
       }
       const [dx,dy]=dpad;
       for (const [id,u,v] of [["up",0,-1],["right",1,0],["down",0,1],["left",-1,0]]) {
@@ -265,6 +284,12 @@
         line([[.237,-.046,.439],[.281,0,.439],[.237,.046,.439]].map(p=>transform(...p)),active(id)?"#273421":"#bdc9bc",.018);
       }
       const view=controls.view, menu=controls.menu;
+      if (ps5) {
+        textAt("PS",controls.guide[1],controls.guide[2],.401,.11,"#27372c");
+        textAt("⋮",view[1],view[2],.405,.15,"#e6ece3");
+        textAt("≡",menu[1],menu[2],.405,.15,"#e6ece3");
+        return;
+      }
       const icon=(points,control,color,w)=>line(localPath(points,control[1],control[2],.405),color,w);
       icon([[-.059,.017],[-.076,.017],[-.076,-.047],[-.002,-.047],[-.002,-.031]],view,"#e6ece3",.013);
       icon([[-.038,-.017],[.067,-.017],[.067,.049],[-.038,.049],[-.038,-.017]],view,"#e6ece3",.014);
@@ -275,7 +300,7 @@
     }
     function shoulderLabel(part) {
       const [,x,y,z]=controls[part.id];
-      textAt(part.id.toUpperCase(),x,y,z+.010,.124,active(part.id)?"#203021":"#d2ddd2",650,part.angle);
+      textAt(ps5 ? ps5Labels[part.id] : part.id.toUpperCase(),x,y,z+.010,.124,active(part.id)?"#203021":"#d2ddd2",650,part.angle);
     }
     function draw() {
       raf=0;

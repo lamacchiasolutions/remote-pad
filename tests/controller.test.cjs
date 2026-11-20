@@ -6,8 +6,9 @@ const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "../app/controller.js"), "utf8");
 
-function browser() {
+function browser(url) {
   const window = new EventTarget();
+  if (url) window.location = new URL(url);
   const document = new EventTarget();
   document.pointerLockElement = null;
   document.exitPointerLock = () => {
@@ -23,7 +24,10 @@ function browser() {
   window.GamepadButton = class GamepadButton {};
   window.GamepadEvent = class GamepadEvent extends Event {};
   let time = 1000;
-  const context = vm.createContext({ window, document, navigator, Event, performance: { now: () => time } });
+  class KeyboardEvent extends Event {
+    constructor(type, options) { super(type, options); this.code = options.code; this.key = options.key; }
+  }
+  const context = vm.createContext({ window, document, navigator, Event, KeyboardEvent, URLSearchParams, performance: { now: () => time } });
   const unpatched = navigator.getGamepads;
   vm.runInContext(source, context);
   const api = window.RemotePadController;
@@ -59,6 +63,57 @@ test("explicit installation precedes site method caching, connection events and 
   assert.deepEqual(Array.from(poll()[0].axes), [0, 0, 0, 0]);
   assert.equal(b.send("keydown", { code: "Space" }).defaultPrevented, false);
   assert.equal(poll()[0].buttons[0].value, 0);
+});
+
+test("the PS5 companion sees positional buttons, triggers, right-stick aim, and touchpad clicks without extra keyboard controls", () => {
+  const b = browser("http://127.0.0.1:17365/");
+  b.document.body = { classList: { contains: name => name === "mode-control" } };
+  b.api.connect();
+  const companionKeys = new Set();
+  b.window.addEventListener("keydown", event => companionKeys.add(event.code));
+  b.window.addEventListener("keyup", event => companionKeys.delete(event.code));
+  b.send("keydown", { code: "KeyK" });
+  assert.deepEqual([...companionKeys], ["KeyK"], "the page can use its keyboard while capture is off");
+  b.api.start();
+  assert.deepEqual([...companionKeys], [], "capture releases keys already pressed in the player");
+  assert.equal(b.pad().buttons.length, 18);
+  b.send("keydown", { code: "KeyK" });
+  assert.deepEqual([...companionKeys], [], "unmapped native companion shortcut stays released");
+  b.send("mousemove", { movementX: 3, movementY: -2, buttons: 0 });
+  assert.ok(b.pad().axes[2] > 0 && b.pad().axes[3] < 0);
+  for (const [code, index] of [["Space", 0], ["Tab", 8], ["Enter", 9], ["KeyG", 16]]) {
+    b.send("keydown", { code });
+    assert.ok(b.pad().buttons[index].pressed);
+  }
+  b.send("pointermove", { pointerType: "mouse", buttons: 3, movementX: 1, movementY: 0 });
+  assert.equal(b.pad().buttons[6].value, 1);
+  assert.equal(b.pad().buttons[7].value, 1);
+  assert.ok(b.pad().axes[2] > 0);
+  assert.equal(companionKeys.has("Tab"), false, "Create does not also click the touchpad");
+  b.send("keydown", { code: "KeyT" });
+  assert.ok(b.pad().buttons[17].pressed);
+  assert.deepEqual([...companionKeys], ["Tab"], "the companion's touchpad binding follows virtual button 17");
+  b.api.stop();
+  assert.deepEqual([...companionKeys], []);
+  assert.ok(b.pad().buttons.every(button => !button.pressed));
+});
+
+test("local PS5 layouts share touchpad bindings without changing Xbox button order or consuming Xbox keys", () => {
+  const layout = browser("https://remote-pad.invalid/mapper.html?console=ps5");
+  assert.equal(layout.api.ps5, true);
+  const bindings = layout.api.setBindings({ touchpad: ["KeyU"] });
+  const bench = browser("file:///RemotePad/app/bench.html?console=ps5");
+  bench.api.setBindings(bindings);
+  bench.api.start();
+  bench.send("keydown", { code: "KeyU" });
+  assert.ok(bench.pad().buttons[17].pressed);
+  const xbox = browser("https://play.xbox.com/remoteplay?console=ps5");
+  xbox.api.setBindings(bindings);
+  xbox.api.start();
+  assert.equal(xbox.api.ps5, false);
+  assert.equal(xbox.pad().buttons.length, 17);
+  assert.equal(xbox.send("keydown", { code: "KeyU" }).defaultPrevented, false);
+  assert.deepEqual(Array.from(xbox.api.getBindings().touchpad), ["KeyU"]);
 });
 
 test("reports every mapped Xbox button as pressed, touched, and released while capturing", () => {

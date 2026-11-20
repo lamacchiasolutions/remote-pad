@@ -12,7 +12,7 @@
         <div class="stick-box"><div id="left-stick" class="stick"></div><label>Left stick</label><div id="left-value" class="numeric">0.00 / 0.00</div></div>
         <div class="stick-box"><div id="right-stick" class="stick"></div><label>Right stick</label><div id="right-value" class="numeric">0.00 / 0.00</div></div>
       </div>
-      <div class="trigger-row"><span>LT</span><div class="meter"><i id="lt"></i></div><span>RT</span><div class="meter"><i id="rt"></i></div></div>
+      <div class="trigger-row"><span id="lt-label">LT</span><div class="meter"><i id="lt"></i></div><span id="rt-label">RT</span><div class="meter"><i id="rt"></i></div></div>
     </section>
     <section class="card">
       <div class="card-title"><h2>Buttons</h2></div><div class="pad-buttons" id="pad-buttons"></div>
@@ -23,6 +23,6 @@
       <p class="bench-setting-note" id="minimum-hint">Raise this if a game ignores small mouse movements.</p>
     </section>
   </div>
-  <p class="bench-foot">Try moving the mouse with both buttons released. With the default layout, the right stick follows while both triggers stay empty. Press <kbd>Esc</kbd> to release your inputs. <a class="back" href="mapper.html">Edit layout →</a></p>
+  <p class="bench-foot">Try moving the mouse with both buttons released. With the default layout, the right stick follows while both triggers stay empty. Press <kbd>Esc</kbd> to release your inputs. <a class="back" id="edit-layout" href="mapper.html">Edit layout →</a></p>
   <p id="notice" class="notice" role="status"></p>
 </main></body></html>

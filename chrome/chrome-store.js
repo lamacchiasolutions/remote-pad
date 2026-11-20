@@ -1,7 +1,7 @@
 // Isolated extension context. Only the controller layout crosses the page boundary.
 (() => {
   "use strict";
-  const ids = new Set("a b x y lb rb lt rt view menu ls rs up down left right guide lxLeft lxRight lyUp lyDown rxLeft rxRight ryUp ryDown".split(" "));
+  const ids = new Set("a b x y lb rb lt rt view menu ls rs up down left right guide touchpad lxLeft lxRight lyUp lyDown rxLeft rxRight ryUp ryDown".split(" "));
   function valid(map) {
     return map !== null && typeof map === "object" && !Array.isArray(map) &&
       Object.entries(map).every(([key, codes]) => ids.has(key) && Array.isArray(codes) &&

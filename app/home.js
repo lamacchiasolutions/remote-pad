@@ -1,14 +1,15 @@
 "use strict";
+const homeActions = window.RemotePadWindows?.action || window.webkit?.messageHandlers?.remotePad;
+document.getElementById("chrome-setup").hidden = !window.webkit?.messageHandlers?.remotePad;
 document.addEventListener("click", event => {
   const button = event.target.closest("button[data-action]");
   if (!button) return;
   const action = button.dataset.action;
-  const native = window.webkit?.messageHandlers?.remotePad;
-  if (native) { native.postMessage(action); return; }
+  if (homeActions) { homeActions.postMessage(action); return; }
   if (action === "bench" || action === "map") { location.href = action === "map" ? "mapper.html" : "bench.html"; return; }
   const status = document.getElementById("action-status");
   status.hidden = false;
-  status.textContent = "Open Remote Pad.app to launch a session or set up Chrome.";
+  status.textContent = "Open the Remote Pad app to launch a session.";
   status.scrollIntoView({ block: "nearest" });
 });
 

@@ -1,19 +1,25 @@
 (() => {
   "use strict";
   if (window.RemotePadMapper) return;
+  const ps5 = window.RemotePadController.ps5;
   const groups = [
-    ["Face buttons", [["a","A button"],["b","B button"],["x","X button"],["y","Y button"]]],
-    ["Shoulders", [["lb","Left bumper (LB)"],["rb","Right bumper (RB)"],["lt","Left trigger (LT)"],["rt","Right trigger (RT)"]]],
+    ["Face buttons", ps5 ? [["a","Cross"],["b","Circle"],["x","Square"],["y","Triangle"]] :
+      [["a","A button"],["b","B button"],["x","X button"],["y","Y button"]]],
+    ["Shoulders", ps5 ? [["lb","L1"],["rb","R1"],["lt","Left trigger (L2)"],["rt","Right trigger (R2)"]] :
+      [["lb","Left bumper (LB)"],["rb","Right bumper (RB)"],["lt","Left trigger (LT)"],["rt","Right trigger (RT)"]]],
     ["Left stick", [["ls","Left stick click"],["lyUp","Left stick up"],["lyDown","Left stick down"],["lxLeft","Left stick left"],["lxRight","Left stick right"]]],
     ["Right stick", [["rs","Right stick click"],["ryUp","Right stick up"],["ryDown","Right stick down"],["rxLeft","Right stick left"],["rxRight","Right stick right"]]],
     ["D-pad", [["up","D-pad up"],["down","D-pad down"],["left","D-pad left"],["right","D-pad right"]]],
-    ["Center", [["view","View"],["menu","Menu"],["guide","Xbox Guide"]]]
+    ["Center", ps5 ? [["view","Create"],["menu","Options"],["guide","PS button"],["touchpad","Touchpad click"]] :
+      [["view","View"],["menu","Menu"],["guide","Xbox Guide"]]]
   ];
   const titles = Object.fromEntries(groups.flatMap(([,entries]) => entries));
+  const windows = Boolean(window.RemotePadWindows) || /^Win/i.test(navigator.platform);
+  const systemKey = windows ? "Windows key" : "Command key";
   const names = {
     Mouse0:"Left click",Mouse1:"Middle click",Mouse2:"Right click",Mouse3:"Mouse back",Mouse4:"Mouse forward",
     MouseMoveUp:"Mouse up",MouseMoveDown:"Mouse down",MouseMoveLeft:"Mouse left",MouseMoveRight:"Mouse right",
-    ShiftLeft:"Left Shift",ShiftRight:"Right Shift",AltLeft:"Left Option",AltRight:"Right Option",
+    ShiftLeft:"Left Shift",ShiftRight:"Right Shift",AltLeft:windows ? "Left Alt" : "Left Option",AltRight:windows ? "Right Alt" : "Right Option",
     ControlLeft:"Left Control",ControlRight:"Right Control",Space:"Space",Backquote:"`",Minus:"−",Equal:"=",
     BracketLeft:"[",BracketRight:"]",Backslash:"\\",Semicolon:";",Quote:"'",Comma:",",Period:".",Slash:"/",
     ArrowUp:"↑",ArrowDown:"↓",ArrowLeft:"←",ArrowRight:"→"
@@ -65,7 +71,7 @@
     catch { shadow.append(element("style",style)); }
     const grid = element("div",null,"grid");
     const surface = element("section",null,"surface");
-    const top = element("div",null,"top"); top.append(element("h2","Controller"));
+    const top = element("div",null,"top"); top.append(element("h2",ps5 ? "PS5 controls" : "Xbox controls"));
     const visual = element("div",null,"visual");
     surface.append(top,visual);
     const pane = element("section",null,"inspector");
@@ -92,7 +98,7 @@
     }
     const record = element("div",null,"capture"); record.tabIndex=0; record.hidden=true;
     const instructions=element("p","Press a key, or click inside this box with the mouse button you want.");
-    record.append(instructions, element("div","Esc cancels. Command shortcuts stay with macOS.","hint"));
+    record.append(instructions, element("div","Esc cancels. The " + systemKey + " is reserved for system shortcuts.","hint"));
     record.setAttribute("aria-label","Waiting for a key or mouse button");
     const cancelRecord=button("Cancel",() => cancel()); cancelRecord.hidden=true;
     const confirm=element("div",null,"confirm");confirm.hidden=true;
@@ -169,11 +175,11 @@
       const target=selected;
       cancel();gesture.open=false;
       const layout=api.getBindings();
-      const others=Object.keys(layout).filter(id=>id!==target && layout[id].includes(code));
+      const others=Object.keys(titles).filter(id=>id!==target && layout[id].includes(code));
       function apply(move) {
         // Fetch the latest profile again if another player tab saved while this prompt was open.
         const next=api.getBindings();
-        if(move) for(const id of Object.keys(next)) if(id!==target) next[id]=next[id].filter(value=>value!==code);
+        if(move) for(const id of Object.keys(titles)) if(id!==target) next[id]=next[id].filter(value=>value!==code);
         next[target]=append ? [...new Set([...next[target],code])] : [code];
         return persist(next,"Saved "+pretty(code)+" to "+titles[target]+".");
       }
@@ -191,11 +197,11 @@
     }
     function key(event) {
       if(listening===null) return;
-      if(event.metaKey || event.code.startsWith("Meta")) {message.textContent="Choose a key outside a Command shortcut.";return;}
+      if(event.metaKey || event.code.startsWith("Meta")) {message.textContent="Choose a key other than the " + systemKey + ".";return;}
       event.preventDefault();event.stopImmediatePropagation();
       if(event.repeat||event.isComposing) return;
       if(event.code==="Escape"){cancel();edit.focus();return;}
-      if(!event.code || event.code==="Unidentified"){message.textContent="macOS did not identify that key. Try another.";return;}
+      if(!event.code || event.code==="Unidentified"){message.textContent="The key could not be identified. Try another.";return;}
       propose(event.code,listening.append);
     }
     record.addEventListener("pointerdown",e=>{

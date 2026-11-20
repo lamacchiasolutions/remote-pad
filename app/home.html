@@ -5,10 +5,11 @@
 <main class="desk">
   <section class="hero">
     <div class="intro">
-      <div class="eyebrow"><span class="signal" aria-hidden="true"><i></i><i></i><i></i></span>Xbox Remote Play</div>
+      <div class="eyebrow"><span class="signal" aria-hidden="true"><i></i><i></i><i></i></span>Console Remote Play</div>
       <h1>Remote Pad<span class="period">.</span></h1>
-      <p class="lede">Play on your Xbox with the keyboard and mouse on your Mac.</p>
-      <div class="actions"><button class="primary" data-action="play">Open Remote Play <span aria-hidden="true">↗</span></button><button class="secondary" data-action="map">Map controls</button><button class="text-button" data-action="bench">Test inputs</button></div>
+      <p class="lede">Play on your Xbox or PS5 with your keyboard and mouse.</p>
+      <div class="actions"><button class="primary" data-action="play">Open Xbox Remote Play</button><button class="secondary" data-action="ps5">Open PS5 Remote Play</button></div>
+      <div class="actions small"><button class="text-button" data-action="map">Map controls</button><button class="text-button" data-action="bench">Test inputs</button></div>
     </div>
     <div class="home-model" id="home-model"></div>
   </section>
@@ -17,13 +18,19 @@
     <section class="card bindings"><div class="card-title"><h2>Current bindings</h2><a class="back" href="mapper.html">Edit all →</a></div>
       <dl class="mapping" id="current-bindings"></dl>
     </section>
-    <section class="card guide"><div class="card-title"><h2>Connect your Xbox</h2></div>
+    <section class="card guide"><div class="card-title"><h2>Connect your console</h2></div>
+      <details open><summary>Xbox setup <span aria-hidden="true">＋</span></summary>
       <ol>
         <li>On your Xbox, open <strong>Settings → Devices &amp; connections → Remote features</strong> and enable remote features.</li>
-        <li>Open Remote Play, sign in with the Microsoft account linked to your Xbox, and select your console.</li>
+        <li>Open Xbox Remote Play, sign in with the Microsoft account linked to your Xbox, and select your console.</li>
         <li>Click <strong>Capture inputs</strong> to play. Press <kbd>Esc</kbd> to return to the cursor.</li>
-      </ol>
-      <details><summary>Play in Google Chrome <span aria-hidden="true">＋</span></summary>
+      </ol></details>
+      <details><summary>PS5 setup <span aria-hidden="true">＋</span></summary>
+        <p>Enable <strong>Settings → System → Remote Play → Enable Remote Play</strong> on your PS5. Open Docker Desktop on this computer, choose <strong>Start PS5 Player</strong>, then <strong>Open PS5 Remote Play</strong> to pair your console.</p>
+        <div class="actions small"><button class="secondary" data-action="startPS5">Start PS5 Player</button><button class="text-button" data-action="ps5Setup">PS5 setup guide</button></div>
+        <p><a class="back" href="mapper.html?console=ps5">Map PS5 controls</a> · <a class="back" href="bench.html?console=ps5">Test PS5 inputs</a></p>
+      </details>
+      <details id="chrome-setup" hidden><summary>Play in Google Chrome <span aria-hidden="true">＋</span></summary>
         <p>Use this option if sign-in or streaming works better in Chrome.</p>
         <p>Click <strong>Set up Chrome</strong> to copy the extension folder path and open Extensions. Turn on <strong>Developer mode</strong> and choose <strong>Load unpacked</strong>. Press <kbd>⌘⇧G</kbd>, paste the path, then select the folder.</p>
         <div class="actions small"><button class="secondary" data-action="chromeSetup">Set up Chrome</button><button class="text-button" data-action="revealExtension">Show folder</button></div>

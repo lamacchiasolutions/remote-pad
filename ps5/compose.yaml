@@ -1,0 +1,20 @@
+name: remote-pad-ps5
+services:
+  player:
+    image: xiaobai9978/ps5web:1.2.2@sha256:dc0e2071bc5659e90d4c73208f80972f03a7a655d300136dba8266681abae33d
+    platform: linux/amd64
+    ports:
+      - "127.0.0.1:17365:8080"
+    environment:
+      PS5WEB_TRUST_PROXY: "0"
+      PS5WEB_CODEC: h264
+    volumes:
+      - pairing:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/public').then(async r => process.exit(r.ok && (await r.json()).version === '1.2.2' ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 2s
+      timeout: 4s
+      retries: 15
+    restart: "no"
+volumes:
+  pairing:

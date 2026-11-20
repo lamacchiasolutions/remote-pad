@@ -2,6 +2,11 @@
 (() => {
   "use strict";
   if (window.RemotePadController) return;
+  const here = window.location;
+  const ps5Player = here?.origin === "http://127.0.0.1:17365";
+  const localEditor = (here?.protocol === "file:" || here?.origin === "https://remote-pad.invalid") &&
+    /\/(?:bench|mapper)\.html$/.test(here.pathname);
+  const ps5 = ps5Player || (localEditor && new URLSearchParams(here.search).get("console") === "ps5");
 
   // First 17 controls follow the W3C standard gamepad button order.
   const defaults = {
@@ -9,9 +14,11 @@
     lt: ["Mouse2"], rt: ["Mouse0"], view: ["Tab"], menu: ["Enter"], ls: ["ShiftLeft"], rs: ["KeyV"],
     up: ["ArrowUp"], down: ["ArrowDown"], left: ["ArrowLeft"], right: ["ArrowRight"], guide: ["KeyG"],
     lxLeft: ["KeyA"], lxRight: ["KeyD"], lyUp: ["KeyW"], lyDown: ["KeyS"],
-    rxLeft: ["MouseMoveLeft"], rxRight: ["MouseMoveRight"], ryUp: ["MouseMoveUp"], ryDown: ["MouseMoveDown"]
+    rxLeft: ["MouseMoveLeft"], rxRight: ["MouseMoveRight"], ryUp: ["MouseMoveUp"], ryDown: ["MouseMoveDown"],
+    touchpad: ["KeyT"]
   };
   const buttonControls = Object.keys(defaults).slice(0, 17);
+  if (ps5) buttonControls.push("touchpad");
   const sticks = [
     ["lxLeft", "lxRight", "lyUp", "lyDown"], ["rxLeft", "rxRight", "ryUp", "ryDown"]
   ];
@@ -22,10 +29,14 @@
   const motion = [0, 0, 0, 0];
   const motionHeldUntil = Array(4).fill(-Infinity);
   let bindings = defaults;
-  let boundInputs = new Set(Object.values(bindings).flat());
+  const activeControls = [...buttonControls, ...sticks.flat()];
+  const mappedInputs = layout => new Set(activeControls.flatMap(id => layout[id]));
+  let boundInputs = mappedInputs(bindings);
   let inputsDirty = true;
   let lastSampledAt = -Infinity;
-  const buttonValues = Array(17).fill(0);
+  const buttonValues = Array(buttonControls.length).fill(0);
+  const forwardedKeys = new WeakSet();
+  const pageKeys = new Set();
   const axes = [0, 0, 0, 0];
   const syntheticEvents = new WeakSet();
   // Full stick at ~767 px/s at 1x. Retain the user's established sensitivity scale.
@@ -100,7 +111,7 @@
     if (same) return cloneBindings(bindings);
     neutralize();
     bindings = next;
-    boundInputs = new Set(Object.values(bindings).flat());
+    boundInputs = mappedInputs(bindings);
     notify();
     return cloneBindings(bindings);
   }
@@ -169,6 +180,7 @@
       const value = controlValue(control, true, at);
       if (buttonValues[i] === value) continue;
       buttonValues[i] = value;
+      if (ps5Player && control === "touchpad") sendPageKey("Tab", value);
       cachedButtons = undefined;
       reportChanged = true;
     }
@@ -200,6 +212,7 @@
   function neutralize() {
     pressed.clear();
     resetMotion();
+    if (ps5Player && buttonValues[17]) sendPageKey("Tab", false);
     buttonValues.fill(0);
     axes.fill(0);
     cachedAxes = undefined;
@@ -231,7 +244,7 @@
   function makeConnection(slot) {
     let disconnectedAt = null;
     const fields = {
-      id: "Xbox 360 Controller (XInput STANDARD GAMEPAD)", index: slot, mapping: "standard",
+      id: ps5 ? "Remote Pad PS5 Controller" : "Xbox 360 Controller (XInput STANDARD GAMEPAD)", index: slot, mapping: "standard",
       get connected() { return disconnectedAt === null; },
       get timestamp() {
         if (disconnectedAt !== null) return disconnectedAt;
@@ -381,6 +394,9 @@
     const wasConnected = index >= 0;
     connect();
     if (!capturing) {
+      // Release keys the companion saw before the pointer was captured.
+      for (const code of pageKeys) sendPageKey(code, false);
+      pageKeys.clear();
       hadPointerLock = Boolean(document.pointerLockElement);
       capturing = true;
       // A page can add listeners after our document-start connection announcement.
@@ -393,6 +409,7 @@
   }
 
   function stop() {
+    pageKeys.clear();
     nativeMouseSession = null;
     if (capturing) {
       capturing = false;
@@ -475,8 +492,22 @@
     event.stopImmediatePropagation();
   }
 
+  // ps5web polls the standard buttons, and accepts its touchpad click through Tab.
+  function sendPageKey(code, down) {
+    const event = new KeyboardEvent(down ? "keydown" : "keyup", { code, key: code === "Tab" ? "Tab" : "", cancelable: true });
+    forwardedKeys.add(event);
+    window.dispatchEvent(event);
+  }
+
   function keyInput(event) {
-    if (!capturing) return;
+    if (forwardedKeys.has(event)) return;
+    if (!capturing) {
+      if (ps5Player && document.body?.classList.contains("mode-control")) {
+        if (event.type === "keyup") pageKeys.delete(event.code);
+        else if (event.code && !event.metaKey && !editable(event)) pageKeys.add(event.code);
+      }
+      return;
+    }
     if (event.code === "Escape" && event.type === "keydown") {
       consume(event);
       stop();
@@ -486,7 +517,11 @@
       neutralize();
       return;
     }
-    if (!boundInputs.has(event.code)) return;
+    if (!boundInputs.has(event.code)) {
+      // The PS5 companion also has its own key mappings. During capture our layout owns these keys.
+      if (ps5Player && event.code !== "F8") consume(event);
+      return;
+    }
     consume(event);
     setPressed(event.code, event.type === "keydown");
   }
@@ -578,6 +613,7 @@
   }
 
   window.RemotePadController = Object.freeze({
+    ps5, ps5Player, isMapped: code => boundInputs.has(code),
     install, connect, start, stop, disconnect, setSensitivity, setLookDeadzone, getState, setBindings,
     setNativeMouseRouting, endNativeMouseRouting, nativeMouseMove,
     getDefaultBindings: () => cloneBindings(defaults),
