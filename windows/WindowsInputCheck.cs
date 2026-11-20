@@ -95,7 +95,9 @@ namespace RemotePad
             await core.ExecuteScriptAsync("document.querySelector('[data-action=play]').click()");
             const string inspect = @"(() => {
                 const title = document.title.slice(0,140);
-                const remotePlay = /\/remoteplay(?:\/|$)/i.test(location.pathname);
+                const consoles = location.hostname === 'www.xbox.com' &&
+                    /^\/(?:[a-z]{2,3}(?:-[a-z0-9]{2,8})*\/)?play\/consoles\/?$/i.test(location.pathname);
+                const remotePlay = /\/remoteplay(?:\/|$)/i.test(location.pathname) || consoles;
                 const xbox = ['https://play.xbox.com','https://www.xbox.com','https://xbox.com'].includes(location.origin);
                 const signedOut = /sign in|log in/i.test(document.body?.innerText || '');
                 const dock = !!document.getElementById('remote-pad-controls')?.shadowRoot?.querySelector('.capture');
