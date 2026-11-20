@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Input test · Remote Pad</title>
+<link rel="stylesheet" href="ui.css"><script src="bench.js" defer></script></head>
+<body><main class="desk">
+  <a class="back" href="home.html">← Remote Pad</a>
+  <header class="bench-head"><div><h1>Input test<span class="period">.</span></h1><p class="lede">Capture inputs, then move the mouse or press a key to see what the controller sends.</p></div><button id="capture" class="primary">Capture inputs</button></header>
+  <div class="rig">
+    <section class="card instrument">
+      <div class="card-title"><h2>Sticks &amp; triggers</h2><span id="connection" role="status" class="connection">Connecting</span></div>
+      <div class="sticks">
+        <div class="stick-box"><div id="left-stick" class="stick"></div><label>Left stick</label><div id="left-value" class="numeric">0.00 / 0.00</div></div>
+        <div class="stick-box"><div id="right-stick" class="stick"></div><label>Right stick</label><div id="right-value" class="numeric">0.00 / 0.00</div></div>
+      </div>
+      <div class="trigger-row"><span>LT</span><div class="meter"><i id="lt"></i></div><span>RT</span><div class="meter"><i id="rt"></i></div></div>
+    </section>
+    <section class="card">
+      <div class="card-title"><h2>Buttons</h2></div><div class="pad-buttons" id="pad-buttons"></div>
+      <div class="sens"><label for="sensitivity">Mouse sensitivity</label><output id="gain" for="sensitivity">1.00×</output></div>
+      <input id="sensitivity" type="range" min=".25" max="3" step=".05" value="1">
+      <div class="sens"><label for="look-minimum">Minimum look strength</label><output id="minimum-value" for="look-minimum">27%</output></div>
+      <input id="look-minimum" type="range" min="0" max=".5" step=".01" value=".27" aria-describedby="minimum-hint">
+      <p class="bench-setting-note" id="minimum-hint">Raise this if a game ignores small mouse movements.</p>
+    </section>
+  </div>
+  <p class="bench-foot">Try moving the mouse with both buttons released. With the default layout, the right stick follows while both triggers stay empty. Press <kbd>Esc</kbd> to release your inputs. <a class="back" href="mapper.html">Edit layout →</a></p>
+  <p id="notice" class="notice" role="status"></p>
+</main></body></html>

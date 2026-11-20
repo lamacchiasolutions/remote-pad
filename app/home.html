@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Remote Pad</title><link rel="stylesheet" href="ui.css"><script src="controller.js" defer></script><script src="bindings-store.js" defer></script><script src="controller-model.js" defer></script><script src="mapper-ui.js" defer></script><script src="home.js" defer></script></head>
+<body>
+<main class="desk">
+  <section class="hero">
+    <div class="intro">
+      <div class="eyebrow"><span class="signal" aria-hidden="true"><i></i><i></i><i></i></span>Xbox Remote Play</div>
+      <h1>Remote Pad<span class="period">.</span></h1>
+      <p class="lede">Play on your Xbox with the keyboard and mouse on your Mac.</p>
+      <div class="actions"><button class="primary" data-action="play">Open Remote Play <span aria-hidden="true">↗</span></button><button class="secondary" data-action="map">Map controls</button><button class="text-button" data-action="bench">Test inputs</button></div>
+    </div>
+    <div class="home-model" id="home-model"></div>
+  </section>
+
+  <div class="desk-grid">
+    <section class="card bindings"><div class="card-title"><h2>Current bindings</h2><a class="back" href="mapper.html">Edit all →</a></div>
+      <dl class="mapping" id="current-bindings"></dl>
+    </section>
+    <section class="card guide"><div class="card-title"><h2>Connect your Xbox</h2></div>
+      <ol>
+        <li>On your Xbox, open <strong>Settings → Devices &amp; connections → Remote features</strong> and enable remote features.</li>
+        <li>Open Remote Play, sign in with the Microsoft account linked to your Xbox, and select your console.</li>
+        <li>Click <strong>Capture inputs</strong> to play. Press <kbd>Esc</kbd> to return to the cursor.</li>
+      </ol>
+      <details><summary>Play in Google Chrome <span aria-hidden="true">＋</span></summary>
+        <p>Use this option if sign-in or streaming works better in Chrome.</p>
+        <p>Click <strong>Set up Chrome</strong> to copy the extension folder path and open Extensions. Turn on <strong>Developer mode</strong> and choose <strong>Load unpacked</strong>. Press <kbd>⌘⇧G</kbd>, paste the path, then select the folder.</p>
+        <div class="actions small"><button class="secondary" data-action="chromeSetup">Set up Chrome</button><button class="text-button" data-action="revealExtension">Show folder</button></div>
+        <p>Already installed? Click <strong>Set up Chrome</strong>, click the reload arrow on the Remote Pad extension, then refresh the Remote Play tab.</p>
+        <button class="secondary" data-action="chromePlay">Open in Chrome ↗</button>
+      </details>
+    </section>
+  </div><p id="action-status" role="status" hidden></p>
+</main>
+</body></html>

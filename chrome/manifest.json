@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "Remote Pad",
+  "version": "1.1.1",
+  "description": "Use your keyboard and mouse as a controller in Xbox Remote Play.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.xbox.com/remoteplay*",
+        "https://www.xbox.com/*/remoteplay*",
+        "https://www.xbox.com/play*",
+        "https://www.xbox.com/*/play*",
+        "https://play.xbox.com/*"
+      ],
+      "js": [
+        "chrome-store.js"
+      ],
+      "run_at": "document_start",
+      "world": "ISOLATED"
+    },
+    {
+      "matches": [
+        "https://www.xbox.com/remoteplay*",
+        "https://www.xbox.com/*/remoteplay*",
+        "https://www.xbox.com/play*",
+        "https://www.xbox.com/*/play*",
+        "https://play.xbox.com/*"
+      ],
+      "js": [
+        "controller.js",
+        "bindings-store.js",
+        "controller-model.js",
+        "mapper-ui.js",
+        "overlay.js",
+        "boot.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ],
+  "permissions": [
+    "storage"
+  ]
+}
