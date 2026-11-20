@@ -15,15 +15,18 @@ namespace RemotePad
             var core = view.CoreWebView2;
             // Only check mode installs fixtures, and it uses a temporary WebView2 profile.
             // Exercise both player entry URLs offline, including the player page's first script.
-            const string fixture = "<!doctype html><html><head><title>Player check</title></head>" +
-                "<body class='mode-control'><script>window.readPad = () => Array.from(navigator.getGamepads()).find(p => p && p.mapping === 'standard');</script></body></html>";
+            const string fixture = "<!doctype html><html><head><title>Player check</title></head><body class='mode-control'>" +
+                "<script>window.readPad = () => Array.from(navigator.getGamepads()).find(p => p && p.mapping === 'standard');</script>";
+            const string ps5Controls = "<button id='btn-take-control'>我要操控</button><div id='host-list'></div>" +
+                "<input id='add-address' placeholder='PS5 的 IP，例如 192.168.1.50'>";
             core.AddWebResourceRequestedFilter(PlayerWindow.Xbox, CoreWebView2WebResourceContext.Document);
             core.AddWebResourceRequestedFilter(PlayerWindow.PlayStation + "*", CoreWebView2WebResourceContext.Document);
             core.WebResourceRequested += (s, e) =>
             {
-                if (e.Request.Uri == PlayerWindow.Xbox || e.Request.Uri == PlayerWindow.PlayStation)
-                    e.Response = environment.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes(fixture)),
-                        200, "OK", "Content-Type: text/html; charset=utf-8");
+                if (e.Request.Uri != PlayerWindow.Xbox && e.Request.Uri != PlayerWindow.PlayStation) return;
+                string html = fixture + (e.Request.Uri == PlayerWindow.PlayStation ? ps5Controls : "") + "</body></html>";
+                e.Response = environment.CreateWebResourceResponse(new MemoryStream(Encoding.UTF8.GetBytes(html)),
+                    200, "OK", "Content-Type: text/html; charset=utf-8");
             };
 
             await Load(core, PlayerWindow.Local + "home.html", () => core.Navigate(PlayerWindow.Local + "home.html"));
@@ -61,7 +64,16 @@ namespace RemotePad
                         throw Error('Player controller or capture overlay missing');");
                 if (url == PlayerWindow.PlayStation)
                 {
-                    await Eval(core, @"if (readPad().buttons.length !== 18) throw Error('PS5 touchpad button missing');
+                    await Eval(core, @"const text = id => document.getElementById(id).textContent.trim();
+                        if (text('btn-take-control') !== 'Take control · 我要操控') throw Error('PS5 control label was not translated');
+                        const address = document.getElementById('add-address').placeholder;
+                        if (address !== 'PS5 IP address, e.g. 192.168.1.50') throw Error('PS5 address hint was not translated');
+                        const list = document.getElementById('host-list');
+                        list.innerHTML = '<div class=hc-name>配对</div><div class=hc-actions><button>配对</button></div>';
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                        if (list.querySelector('button').textContent !== 'Pair · 配对') throw Error('New pairing button was not translated');
+                        if (list.querySelector('.hc-name').textContent !== '配对') throw Error('User console name was modified');
+                        if (readPad().buttons.length !== 18) throw Error('PS5 touchpad button missing');
                         const touch = [];
                         for (const type of ['keydown','keyup']) window.addEventListener(type, e => { if (e.code === 'Tab') touch.push(type); });
                         RemotePadController.start();

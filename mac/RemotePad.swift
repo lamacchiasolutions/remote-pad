@@ -900,6 +900,11 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
                     const info = await (await fetch('/api/public')).json();
                     if (info.version !== '1.2.2' || !document.querySelector('#login-form'))
                         throw Error('Expected the Remote Pad PS5 companion');
+                    const video = await window.VideoDecoder?.isConfigSupported({ codec:'avc1.42001e',
+                        codedWidth:1280, codedHeight:720 });
+                    const audio = await window.AudioDecoder?.isConfigSupported({ codec:'opus',
+                        sampleRate:48000, numberOfChannels:2 });
+                    if (!video?.supported || !audio?.supported) throw Error('PS5 playback requires H.264 video and Opus audio decoding');
                     document.body.classList.add('mode-control');
                     const { InputManager } = await import('/js/input.js');
                     window.ps5Samples = [];
@@ -938,7 +943,7 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
                     }
                     throw Error('Missing neutral release packet');
                     """, in: nil, contentWorld: .page)
-                finishCheck(true, "PS5 companion 1.2.2 frontend, pointer lock and native motion, Cross, L2/R2 and neutral controller packets")
+                finishCheck(true, "PS5 companion 1.2.2 frontend, H.264/Opus decoding support, pointer lock and native motion, Cross, L2/R2 and neutral controller packets")
             } catch { finishCheck(false, String(describing: error as NSError)) }
         }
     }
