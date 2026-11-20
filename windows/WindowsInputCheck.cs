@@ -76,6 +76,50 @@ namespace RemotePad
             return "PASS: WebView2 home, saved mapping, pointer lock, button-free mouse look, aim and fire together, Escape, Xbox and PS5 player fixtures.";
         }
 
+        internal static async Task<string> RunXbox(CoreWebView2 core)
+        {
+            // This check follows the normal home button, with no intercepted resources or account cookies.
+            await Load(core, PlayerWindow.Local + "home.html", () => core.Navigate(PlayerWindow.Local + "home.html"));
+            await core.ExecuteScriptAsync("document.querySelector('[data-action=play]').click()");
+            const string inspect = @"(() => {
+                const title = document.title.slice(0,140);
+                const remotePlay = /\/remoteplay(?:\/|$)/i.test(location.pathname);
+                const xbox = ['https://play.xbox.com','https://www.xbox.com','https://xbox.com'].includes(location.origin);
+                const signedOut = /sign in|log in/i.test(document.body?.innerText || '');
+                const dock = !!document.getElementById('remote-pad-controls')?.shadowRoot?.querySelector('.capture');
+                const pad = window.RemotePadController?.getState().connected === true;
+                return { ready: xbox && remotePlay && signedOut && dock && pad, title, remotePlay, signedOut, dock, pad };
+            })()";
+            string lastState = "waiting for the Xbox player";
+            var deadline = DateTime.UtcNow.AddSeconds(70);
+            while (DateTime.UtcNow < deadline)
+            {
+                try
+                {
+                    lastState = await core.ExecuteScriptAsync(inspect);
+                    var status = ControllerSettings.Json.DeserializeObject(lastState) as Dictionary<string, object>;
+                    if (status != null && Equals(status["ready"], true))
+                    {
+                        await Eval(core, @"const dock = document.getElementById('remote-pad-controls').shadowRoot;
+                            const pad = navigator.getGamepads()[RemotePadController.getState().index];
+                            if (!pad?.connected || pad.mapping !== 'standard' || pad.axes.length !== 4 || pad.buttons.length !== 17)
+                                throw Error('Virtual Xbox controller is unavailable in the live player');
+                            dock.querySelector('.toggle').click();
+                            dock.querySelector('.edit-map').click();
+                            const editor = dock.querySelector('dialog[open]')?.lastElementChild.firstElementChild?.shadowRoot;
+                            if (editor?.querySelector('select')?.options.length !== 25) throw Error('Xbox layout editor did not open');
+                            dock.querySelector('dialog').close();");
+                        return "PASS: signed-out Xbox Remote Play, capture control, 17-button virtual controller and 25-control editor at " +
+                            new Uri(core.Source).GetLeftPart(UriPartial.Path);
+                    }
+                }
+                // Redirects during startup can replace the page between two WebView2 calls.
+                catch (System.Runtime.InteropServices.COMException error) { lastState = error.Message; }
+                await Task.Delay(350);
+            }
+            throw new TimeoutException("Live Xbox check timed out at " + new Uri(core.Source).GetLeftPart(UriPartial.Path) + " — " + lastState);
+        }
+
         private static async Task Load(CoreWebView2 core, string url, Action navigate)
         {
             var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);

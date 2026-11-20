@@ -116,6 +116,36 @@ test("local PS5 layouts share touchpad bindings without changing Xbox button ord
   assert.deepEqual(Array.from(xbox.api.getBindings().touchpad), ["KeyU"]);
 });
 
+test("PS5 capture is available in controller sessions and releases on return to setup or spectating", () => {
+  function bootAt(url) {
+    const b = browser(url);
+    const location = b.window.location;
+    b.window.top = b.window;
+    let hasControl = false;
+    let active = false;
+    let onModeChange;
+    b.document.body = { classList: { contains: name => hasControl && name === "mode-control" } };
+    b.window.RemotePadUI = { enable() { active = true; }, disable() { active = false; } };
+    class MutationObserver {
+      constructor(fn) { this.fn = fn; }
+      observe() { onModeChange = this.fn; }
+    }
+    const boot = fs.readFileSync(path.join(__dirname, "../app/boot.js"), "utf8");
+    vm.runInNewContext(boot, { window: b.window, document: b.document, location, MutationObserver, setInterval() {} });
+    b.document.dispatchEvent(new Event("DOMContentLoaded"));
+    return { active: () => active, control(enabled) { hasControl = enabled; onModeChange?.(); } };
+  }
+  const ps5 = bootAt("http://127.0.0.1:17365/");
+  assert.equal(ps5.active(), false);
+  ps5.control(true);
+  assert.equal(ps5.active(), true);
+  ps5.control(false);
+  assert.equal(ps5.active(), false);
+  const elsewhere = bootAt("http://127.0.0.1:17366/");
+  elsewhere.control(true);
+  assert.equal(elsewhere.active(), false);
+});
+
 test("reports every mapped Xbox button as pressed, touched, and released while capturing", () => {
   const b = browser();
   b.api.start();

@@ -5,11 +5,74 @@ on:
     branches: [main, windows-port]
   pull_request:
   workflow_dispatch:
+    inputs:
+      live_xbox:
+        description: Test the public Xbox sign-in page from the packaged Windows app
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  ps5-player:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Start the packaged PS5 service
+        run: docker compose -f ps5/compose.yaml up --detach --wait
+
+      - name: Check the local player, login, idle state and native bridge
+        shell: python
+        run: |
+          import http.cookiejar
+          import json
+          import struct
+          import subprocess
+          import urllib.request
+
+          base = 'http://127.0.0.1:17365'
+          browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+          def load(path, body=None):
+              req = urllib.request.Request(base + path)
+              if body is not None:
+                  req.add_header('Content-Type', 'application/json')
+                  req.data = json.dumps(body).encode()
+              with browser.open(req, timeout=10) as response:
+                  return response.read()
+
+          page = load('/')
+          assert b'<title>PS5 Web Play</title>' in page and b'btn-take-control' in page
+          public = json.loads(load('/api/public'))
+          assert public['version'] == '1.2.2' and public['needsLogin'] is True
+          player = ['docker', 'compose', '-f', 'ps5/compose.yaml', 'exec', '-T', 'player']
+          password = subprocess.check_output(player + ['node', '-p', "require('/data/config.json').password"], text=True).strip()
+          assert password and json.loads(load('/api/login', {'password': password}))['ok'] is True
+          state = json.loads(load('/api/state'))
+          assert state['version'] == public['version'] and state['session']['state'] == 'idle'
+          assert state['hosts'] == [] and state['defaults']['codec'] == 'h264'
+
+          # Starting the real binary with a closed stdin emits its ready event and exits without scanning for consoles.
+          frames = subprocess.run(player + ['/usr/local/bin/ps5web-bridge'], input=b'', stdout=subprocess.PIPE,
+                                  check=True, timeout=15).stdout
+          ready = False
+          while frames:
+              kind, size = struct.unpack('>BI', frames[:5])
+              assert len(frames) >= 5 + size
+              if kind == 1 and json.loads(frames[5:5+size]).get('ev') == 'ready':
+                  ready = True
+              frames = frames[5+size:]
+          assert ready, 'PS5 native bridge did not report ready'
+          print('PS5 player, generated-password login, idle session and native bridge startup passed.')
+
+      - name: Remove the disposable PS5 service and test pairing volume
+        if: always()
+        run: docker compose -f ps5/compose.yaml down --volumes
+
   windows:
     runs-on: windows-2025
     timeout-minutes: 15
@@ -45,6 +108,33 @@ jobs:
       - name: Build the ZIP and test its extracted app
         shell: pwsh
         run: ./tools/build-windows.ps1 -CheckInput
+
+      - name: Check the signed-out Xbox page in the packaged Windows app
+        if: (github.event_name == 'push' && github.ref == 'refs/heads/windows-port') || inputs.live_xbox
+        continue-on-error: ${{ github.event_name == 'push' }}
+        shell: pwsh
+        run: |
+          $app = Join-Path $env:RUNNER_TEMP 'live-xbox-check'
+          Expand-Archive dist/Remote-Pad-Windows-x64.zip -DestinationPath $app
+          $log = Join-Path $env:RUNNER_TEMP 'live-xbox.log'
+          $process = Start-Process (Join-Path $app 'RemotePad.exe') -WorkingDirectory $app -PassThru `
+              -ArgumentList "--check-xbox --log `"$log`""
+          try {
+              if (-not $process.WaitForExit(90000)) {
+                  $process.Kill()
+                  throw 'The signed-out Xbox check timed out.'
+              }
+              if ($process.ExitCode -ne 0 -or -not (Test-Path $log) -or (Get-Content -Raw $log) -notmatch '^PASS:') {
+                  throw 'The signed-out Xbox check failed.'
+              }
+              'Packaged Windows app passed the live Xbox sign-in page check.' >> $env:GITHUB_STEP_SUMMARY
+          } catch {
+              'Packaged Windows app could not verify the live Xbox sign-in page.' >> $env:GITHUB_STEP_SUMMARY
+              throw
+          } finally {
+              if (Test-Path $log) { Get-Content $log }
+              $process.Dispose()
+          }
 
       - name: Upload the Windows download
         uses: actions/upload-artifact@v6

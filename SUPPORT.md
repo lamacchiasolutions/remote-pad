@@ -12,8 +12,14 @@ Open **Test inputs → Capture inputs**. With the default layout, **W** moves th
 | Your console is missing or the stream will not start. | Enable remote features on the console and sign in to the linked Microsoft account. Check Microsoft's setup requirements and service status. [Xbox Remote Play](https://www.xbox.com/en-US/consoles/remote-play) · [Xbox status](https://support.xbox.com/xbox-live-status) |
 | macOS displays a warning when opening the download. | The release uses a local signature without Apple notarization. See Apple's explanation of the alert or follow the README to build from source. [Apple's app-opening guidance](https://support.apple.com/en-us/102445) · [Build instructions](README.md#build-and-test) |
 
+## Windows and PlayStation 5
+
+On Windows, extract the entire ZIP before opening RemotePad.exe. If the app reports a missing runtime, install the Evergreen WebView2 Runtime from Microsoft, then reopen it. [WebView2 download](https://developer.microsoft.com/en-us/microsoft-edge/webview2/#download-section)
+
+For PS5, open **PS5 setup → Test PS5 inputs** to check the virtual controller locally. If you cannot open the player, start Docker Desktop, choose **Start PS5 Player**, and wait for the local password. The pairing guide covers manual console addresses, account IDs, audio and the companion's Chinese button labels. [PS5 pairing and troubleshooting](https://github.com/lamacchiasolutions/remote-pad/blob/main/docs/PS5.md)
+
 ## Report a problem
 
-For a Remote Pad problem, open a GitHub issue. Include the app version, macOS version, whether you used the Mac app or Chrome, and the steps that reproduce it. For input issues, include the game, the binding you tried, and what the offline test and in-game input display showed. The tracker is public. Crop account names, console IDs and sign-in details from screenshots. [Remote Pad issues](https://github.com/lamacchiasolutions/remote-pad/issues)
+For a Remote Pad problem, open a GitHub issue. Include the app version, operating system version, whether you used the Mac app, Windows app or Chrome, your console, and the steps that reproduce it. For input issues, include the game, the binding you tried, and what the offline test and in-game input display showed. The tracker is public. Crop account names, console addresses, account IDs, pairing codes and sign-in details from screenshots. [Remote Pad issues](https://github.com/lamacchiasolutions/remote-pad/issues)
 
 For Microsoft account access, console registration or Xbox service problems, contact Xbox Support. [Xbox Support](https://support.xbox.com/)

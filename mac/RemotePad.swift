@@ -913,9 +913,9 @@ final class RemotePad: NSObject, NSApplicationDelegate, NSWindowDelegate, WKNavi
                     """, in: nil, contentWorld: .page)
                 try await captureForCheck()
                 _ = try await mainView.callAsyncJavaScript("""
-                    const send = (name, button) => document.body.dispatchEvent(new MouseEvent(name,
-                        {button, bubbles:true, cancelable:true}));
-                    send('mousedown', 0); send('mousedown', 2);
+                    const press = (button, buttons) => document.body.dispatchEvent(new MouseEvent('mousedown',
+                        {button, buttons, bubbles:true, cancelable:true}));
+                    press(0,1); press(2,3);
                     document.body.dispatchEvent(new KeyboardEvent('keydown', {code:'Space', bubbles:true}));
                     """, in: nil, contentWorld: .page)
                 sendTestMouse(.mouseMoved, dx: 50, dy: -40)

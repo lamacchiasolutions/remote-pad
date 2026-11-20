@@ -19,6 +19,11 @@ of liability. Nothing in these terms limits rights that applicable law makes
 nonwaivable or permissions granted separately under GitHub's Terms of Service
 for using the public repository on GitHub.
 
+Third-party components retain their own licenses. The Windows package includes
+Microsoft WebView2 SDK components and their license and notices in the
+Documentation folder. The optional third-party PS5 player is downloaded
+separately and is licensed by its contributors.
+
 Publisher and official repository
 Lamacchia Solutions
 https://github.com/lamacchiasolutions/remote-pad

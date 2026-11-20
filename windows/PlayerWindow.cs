@@ -24,7 +24,7 @@ namespace RemotePad
         private readonly ToolStripMenuItem back = new ToolStripMenuItem("Back");
         private readonly string dataDirectory;
         private readonly ControllerSettings settings;
-        private readonly bool checking;
+        private readonly CheckMode checkMode;
         private bool fullscreen;
         private FormWindowState previousState;
         private Rectangle previousBounds;
@@ -32,9 +32,9 @@ namespace RemotePad
         internal bool Succeeded { get; private set; }
         internal string CheckResult { get; private set; }
 
-        internal PlayerWindow(string directory, bool check)
+        internal PlayerWindow(string directory, CheckMode mode)
         {
-            checking = check;
+            checkMode = mode;
             dataDirectory = directory;
             settings = new ControllerSettings(directory);
             Text = "Remote Pad";
@@ -83,7 +83,7 @@ namespace RemotePad
                 core.NavigationCompleted += (s, e) =>
                 {
                     ulong navigation = e.NavigationId;
-                    if (checking || e.IsSuccess || e.HttpStatusCode != 0 || ps5Navigation != navigation ||
+                    if (checkMode != CheckMode.None || e.IsSuccess || e.HttpStatusCode != 0 || ps5Navigation != navigation ||
                         e.WebErrorStatus == CoreWebView2WebErrorStatus.OperationCanceled) return;
                     // Let WebView2 finish its event before opening a modal WinForms dialog.
                     BeginInvoke((Action)(() =>
@@ -96,9 +96,11 @@ namespace RemotePad
 
                 menus.Enabled = true;
                 view.Focus();
-                if (checking)
+                if (checkMode != CheckMode.None)
                 {
-                    CheckResult = await WindowsInputCheck.Run(view, environment);
+                    CheckResult = checkMode == CheckMode.Xbox
+                        ? await WindowsInputCheck.RunXbox(core)
+                        : await WindowsInputCheck.Run(view, environment);
                     Succeeded = true;
                     Close();
                 }
@@ -112,7 +114,7 @@ namespace RemotePad
             {
                 CheckResult = error.ToString();
                 Succeeded = false;
-                if (!checking)
+                if (checkMode == CheckMode.None)
                 {
                     string reason = error is WebView2RuntimeNotFoundException
                         ? "Install Microsoft Edge WebView2 Evergreen Runtime, then open Remote Pad again."
